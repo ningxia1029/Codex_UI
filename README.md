@@ -16,6 +16,8 @@
 
 ## 使用方式
 
+最新便携版请从 [GitHub Releases](https://github.com/ningxia1029/Codex_UI/releases/latest) 下载。
+
 ### 第一次使用
 
 1. 解压完整便携包，保留 `CodexAura.exe` 同级的 `_internal` 目录。
