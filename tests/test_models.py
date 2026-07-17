@@ -75,3 +75,15 @@ def test_theme_switch_hint_distinguishes_live_sync_from_first_connection():
 
     assert "自动同步" in describe_theme_switch(live)
     assert "首次连接" in describe_theme_switch(disconnected)
+
+
+def test_runtime_status_prefers_the_backend_verified_connection_flag():
+    status = RuntimeStatus.from_payload(
+        {
+            "state": {"injectorPid": 1234, "port": 9335},
+            "injectorRunning": False,
+            "message": "历史会话已停止",
+        }
+    )
+
+    assert status.injector_running is False

@@ -84,10 +84,18 @@ class RuntimeStatus:
         active = payload.get("active") or {}
         theme = active.get("theme") if isinstance(active, Mapping) else {}
         state = payload.get("state") or {}
+        # 新版后端会同时验证记录的 watcher 进程与 loopback CDP 端点，并显式
+        # 返回 injectorRunning。旧版 payload 没有该键时，才回退到历史 state。
+        running_value = payload.get("injectorRunning")
+        injector_running = (
+            bool(running_value)
+            if running_value is not None
+            else bool(state.get("injectorPid")) if isinstance(state, Mapping) else False
+        )
         return cls(
             paused=bool(payload.get("paused")),
             active_name=str(theme.get("name")) if isinstance(theme, Mapping) and theme.get("name") else None,
-            injector_running=bool(state.get("injectorPid")) if isinstance(state, Mapping) else False,
+            injector_running=injector_running,
             port=int(state["port"]) if isinstance(state, Mapping) and state.get("port") else None,
             message=str(payload.get("message") or "状态已刷新"),
         )
