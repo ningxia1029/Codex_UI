@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+artifacts/
+dist/
+build/
+*.pyc
+release/
+backend/runtime/node/node.exe
+backend/runtime/node/node.lib
+backend/runtime/node/node_pdb.7z
+backend/runtime/node/node_modules/
+backend/themes/*
+!backend/themes/.gitkeep
+*.zip

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "codex-aura-aurora",
+  "name": "极光工作台",
+  "brandSubtitle": "CODEX AURA",
+  "tagline": "把安静的极光带进今天的工作台。",
+  "projectPrefix": "选择项目 · ",
+  "projectLabel": "◉  选择项目",
+  "statusText": "DREAM SKIN ONLINE",
+  "quote": "MAKE SOMETHING WONDERFUL",
+  "image": "dream-reference.jpg",
+  "appearance": "auto",
+  "art": {
+    "focusX": 0.72,
+    "focusY": 0.45,
+    "safeArea": "left",
+    "taskMode": "ambient"
+  }
+}

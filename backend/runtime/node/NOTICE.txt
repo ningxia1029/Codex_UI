@@ -1,0 +1,9 @@
+Bundled Node.js runtime
+=======================
+
+This package includes node.exe v24.12.0 solely to run the bundled local
+Codex Dream Skin helper scripts. npm, corepack, and node_modules are not
+included and are not required by this application.
+
+Node.js is distributed under the MIT License by the OpenJS Foundation.
+Source and license: https://github.com/nodejs/node/tree/v24.12.0
