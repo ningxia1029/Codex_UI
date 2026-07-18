@@ -14,7 +14,18 @@ class BackendError(RuntimeError):
 class PowerShellBridge:
     """Non-interactive JSON bridge to the bundled PowerShell backend."""
 
-    _OPERATIONS = {"list", "status", "activate", "import", "save", "apply", "verify", "restore"}
+    _OPERATIONS = {
+        "list",
+        "status",
+        "activate",
+        "import",
+        "save",
+        "configure",
+        "apply",
+        "verify",
+        "diagnose",
+        "restore",
+    }
 
     def __init__(self, backend_root: Path, powershell: str | None = None) -> None:
         self.backend_root = Path(backend_root)

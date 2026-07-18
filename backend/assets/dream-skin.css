@@ -512,6 +512,34 @@ html.codex-dream-skin .dream-home:has(.dream-home-utility) .composer-surface-chr
     inset 0 -1px var(--dream-immersive-line) !important;
 }
 
+/* Codex 的首页 DOM 会随桌面版本调整。这里不再依赖固定的纵向 flex 高度，
+   只约束容器边界；这样在 100% 到 200% 缩放时，英雄区、建议卡片和输入框
+   不会互相挤压或向左错位。 */
+html.codex-dream-skin .dream-home,
+html.codex-dream-skin .dream-home > div,
+html.codex-dream-skin .dream-home > div > div {
+  min-inline-size: 0 !important;
+}
+
+html.codex-dream-skin .dream-home > div:first-child > div:first-child {
+  flex: 0 1 auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+}
+
+html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
+  width: min(calc(100% - 48px), 1180px) !important;
+  max-width: calc(100% - 48px) !important;
+  min-width: 0 !important;
+  margin-inline: auto !important;
+}
+
+html.codex-dream-skin .dream-home .composer-surface-chrome {
+  box-sizing: border-box !important;
+  max-width: min(100%, 920px) !important;
+  margin-inline: auto !important;
+}
+
 /* Plugins, scheduled tasks and search routes ship opaque sticky wrappers.
    Clear only full-window or sticky route chrome, leaving functional cards and
    their hover states intact. */

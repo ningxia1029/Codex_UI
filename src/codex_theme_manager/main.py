@@ -8,18 +8,23 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
 from PySide6.QtGui import QAction, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSlider,
     QSplitter,
     QToolButton,
     QVBoxLayout,
@@ -29,12 +34,12 @@ from shiboken6 import isValid
 
 from .models import RuntimeStatus, ThemeRecord, describe_theme_switch, visible_themes
 from .runtime import backend_root, resource_root
-from .service import ThemeService
+from .service import ThemeService, ThemeSyncResult
 from .widgets import CodexPreviewCanvas, ThemeWorkspace
 
 
 APP_NAME = "Codex Aura"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 T = TypeVar("T")
 
 
@@ -58,6 +63,140 @@ class BackendWorker(QRunnable):
             return
         if isValid(self.signals):
             self.signals.completed.emit(result)
+
+
+class ThemeEditorDialog(QDialog):
+    """编辑活动主题的可见元数据，不直接触碰 Codex 的任何项目内容。"""
+
+    def __init__(self, owner: "MainWindow", theme: ThemeRecord) -> None:
+        super().__init__(owner)
+        self.owner = owner
+        self.theme = theme
+        self.setWindowTitle("调整主题显示")
+        self.setModal(True)
+        self.setMinimumWidth(470)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(26, 24, 26, 24)
+        layout.setSpacing(12)
+        title = QLabel("调整主题显示")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+        hint = QLabel("这些参数会写入当前主题，并由已连接的 watcher 自动同步到 Codex。")
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+        self.appearance = QComboBox()
+        self.appearance.addItems(["auto", "dark", "light"])
+        self.appearance.setCurrentText(theme.appearance if theme.appearance in {"auto", "dark", "light"} else "auto")
+        form.addRow("界面明暗", self.appearance)
+
+        self.focus_x, focus_x_row = self._slider_row(theme.focus_x, "横向")
+        form.addRow("壁纸焦点 X", focus_x_row)
+        self.focus_y, focus_y_row = self._slider_row(theme.focus_y, "纵向")
+        form.addRow("壁纸焦点 Y", focus_y_row)
+
+        self.safe_area = QComboBox()
+        self.safe_area.addItems(["auto", "left", "right", "center", "none"])
+        self.safe_area.setCurrentText(theme.safe_area)
+        form.addRow("文字安全区", self.safe_area)
+
+        self.task_mode = QComboBox()
+        self.task_mode.addItems(["auto", "ambient", "banner", "off"])
+        self.task_mode.setCurrentText(theme.task_mode)
+        form.addRow("任务页壁纸", self.task_mode)
+
+        self.accent = QLineEdit(theme.accent or "")
+        self.accent.setPlaceholderText("留空表示按壁纸自动取色，例如 #B872FF")
+        form.addRow("强调色", self.accent)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        apply_button = buttons.addButton("保存并同步", QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.rejected.connect(self.reject)
+        apply_button.clicked.connect(self._apply)
+        layout.addWidget(buttons)
+
+    def _slider_row(self, value: float | None, axis: str) -> tuple[QSlider, QWidget]:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(0, 100)
+        slider.setValue(round((0.5 if value is None else value) * 100))
+        label = QLabel()
+        label.setMinimumWidth(44)
+        label.setObjectName("muted")
+
+        def update_label(number: int) -> None:
+            label.setText(f"{number}%")
+            slider.setToolTip(f"{axis}焦点：{number}%")
+
+        slider.valueChanged.connect(update_label)
+        update_label(slider.value())
+        layout.addWidget(slider, 1)
+        layout.addWidget(label)
+        return slider, row
+
+    def _apply(self) -> None:
+        self.owner.configure_selected(
+            self.theme,
+            {
+                "appearance": self.appearance.currentText(),
+                "focusX": self.focus_x.value() / 100,
+                "focusY": self.focus_y.value() / 100,
+                "safeArea": self.safe_area.currentText(),
+                "taskMode": self.task_mode.currentText(),
+                "accent": self.accent.text().strip(),
+            },
+        )
+        self.accept()
+
+
+class DiagnosticsDialog(QDialog):
+    """用可复制的文本展示本机连接状态，避免用户只能凭“未连接”猜测。"""
+
+    def __init__(self, parent: QWidget, diagnostic: dict) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("主题连接诊断")
+        self.setModal(True)
+        self.resize(660, 500)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 20)
+        title = QLabel("主题连接诊断")
+        title.setObjectName("dialogTitle")
+        layout.addWidget(title)
+        self.text = QPlainTextEdit()
+        self.text.setReadOnly(True)
+        self.text.setPlainText(self._format(diagnostic))
+        layout.addWidget(self.text, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        copy = buttons.addButton("复制诊断", QDialogButtonBox.ButtonRole.ActionRole)
+        copy.clicked.connect(lambda: QApplication.clipboard().setText(self.text.toPlainText()))
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    @staticmethod
+    def _format(diagnostic: dict) -> str:
+        status = diagnostic.get("status") or {}
+        lines = [
+            "连接状态",
+            f"• 活动连接：{'是' if status.get('injectorRunning') else '否'}",
+            f"• watcher 进程：{'存活' if status.get('watcherAlive') else '未存活'}",
+            f"• CDP 端点：{'可验证' if status.get('cdpReady') else '不可用'}",
+            f"• 端口：{(status.get('state') or {}).get('port', '—')}",
+            "",
+            f"建议：{diagnostic.get('recommendation') or status.get('message') or '—'}",
+        ]
+        logs = diagnostic.get("logs") or {}
+        for title, key in (("watcher 记录", "injector"), ("错误记录", "errors"), ("最近验证", "verify")):
+            entries = [str(item) for item in (logs.get(key) or []) if str(item).strip()]
+            if entries:
+                lines.extend(["", title, *entries])
+        return "\n".join(lines)
 
 
 class ThemeSettingsDialog(QDialog):
@@ -90,15 +229,15 @@ class ThemeSettingsDialog(QDialog):
         layout.addWidget(details)
 
         explanation = QLabel(
-            "切换主题会写入当前主题。若 Codex 已通过本工具建立连接，外观会自动同步；"
-            "首次连接或连接已停止时，才需要重新连接 Codex。"
+            "应用主题会写入当前主题并检查连接。连接已失效时，会请求一次受控重新连接；"
+            "仅首次建立 CDP 会话时可能需要你确认重启 Codex。"
         )
         explanation.setObjectName("callout")
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
         layout.addSpacing(4)
 
-        activate = QPushButton("切换到此主题")
+        activate = QPushButton("应用主题并同步 Codex")
         activate.setObjectName("primary")
         activate.clicked.connect(self._activate)
         layout.addWidget(activate)
@@ -106,6 +245,10 @@ class ThemeSettingsDialog(QDialog):
         save = QPushButton("保存到主题库")
         save.clicked.connect(self._save)
         layout.addWidget(save)
+
+        edit = QPushButton("调整显示参数")
+        edit.clicked.connect(self._edit)
+        layout.addWidget(edit)
 
         connect = QPushButton("连接 / 重新连接 Codex")
         connect.clicked.connect(self._connect)
@@ -126,6 +269,10 @@ class ThemeSettingsDialog(QDialog):
 
     def _save(self) -> None:
         self.owner.save_current()
+        self.accept()
+
+    def _edit(self) -> None:
+        self.owner.open_theme_editor(self.theme)
         self.accept()
 
     def _connect(self) -> None:
@@ -295,12 +442,23 @@ class MainWindow(QMainWindow):
         shell_layout.setContentsMargins(0, 0, 0, 0)
         shell_layout.setSpacing(0)
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter = splitter
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(1)
         splitter.setContentsMargins(0, 0, 0, 0)
-        splitter.addWidget(self._build_library_panel())
-        splitter.addWidget(self._build_preview_panel())
-        splitter.addWidget(self._build_actions_panel())
+        library_panel = self._build_library_panel()
+        preview_panel = self._build_preview_panel()
+        actions_panel = self._build_actions_panel()
+        library_panel.setMinimumWidth(244)
+        library_panel.setMaximumWidth(340)
+        actions_panel.setMinimumWidth(244)
+        actions_panel.setMaximumWidth(340)
+        splitter.addWidget(library_panel)
+        splitter.addWidget(preview_panel)
+        splitter.addWidget(actions_panel)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
         splitter.setSizes([286, 814, 292])
         shell_layout.addWidget(splitter)
         layout.addWidget(shell, 1)
@@ -334,6 +492,7 @@ class MainWindow(QMainWindow):
         theme_menu.addSeparator()
         theme_menu.addAction("刷新主题库", self.refresh)
         help_menu = menu.addMenu("帮助")
+        help_menu.addAction("主题连接诊断", self.show_diagnostics)
         help_menu.addAction("关于 Codex Aura", self.show_about)
 
     def _build_library_panel(self) -> QWidget:
@@ -345,7 +504,7 @@ class MainWindow(QMainWindow):
         title = QLabel("主题库")
         title.setObjectName("eyebrow")
         layout.addWidget(title)
-        hint = QLabel("选择只改变本地预览。点击“设置”后再切换、保存或连接 Codex。")
+        hint = QLabel("先预览；在“设置”中应用主题时会自动检查并恢复可用连接。")
         hint.setWordWrap(True)
         hint.setObjectName("muted")
         layout.addWidget(hint)
@@ -413,7 +572,7 @@ class MainWindow(QMainWindow):
         self.theme_details.setObjectName("muted")
         self.theme_details.setWordWrap(True)
         layout.addWidget(self.theme_details)
-        self.action_hint = QLabel("预览不影响 Codex；设置中可切换主题或建立连接。")
+        self.action_hint = QLabel("预览不影响 Codex；应用主题时会自动检查连接状态。")
         self.action_hint.setObjectName("callout")
         self.action_hint.setWordWrap(True)
         layout.addWidget(self.action_hint)
@@ -543,21 +702,16 @@ class MainWindow(QMainWindow):
         theme = self.selected_theme()
         if not theme:
             return
-        if theme.source == "active":
-            self._log("当前选择已经是活动主题；如未同步到 Codex，请在设置中重新连接。")
-            return
-        self._run(
-            f"切换到主题：{theme.name}",
-            lambda: self.service.activate_with_status(theme),
-            self._after_theme_switch,
-        )
+        self._run(f"应用主题：{theme.name}", lambda: self.service.activate_and_sync(theme), self._after_theme_switch)
 
-    def _after_theme_switch(self, result: tuple[ThemeRecord, RuntimeStatus]) -> None:
-        active, status = result
-        self.active_theme = active
-        self.status = status
-        self._update_runtime_status(status)
-        self._log(describe_theme_switch(status))
+    def _after_theme_switch(self, result: ThemeSyncResult) -> None:
+        self.active_theme = result.active
+        self.status = result.status
+        self._update_runtime_status(result.status)
+        if result.reconnected:
+            self._log("已恢复已验证的 Codex 连接；后续主题切换会自动同步。")
+        else:
+            self._log(describe_theme_switch(result.status))
         self.refresh()
 
     def save_current(self) -> None:
@@ -581,9 +735,19 @@ class MainWindow(QMainWindow):
         if accepted and name.strip():
             self._run(
                 f"导入并切换壁纸：{Path(file_name).name}",
-                lambda: self.service.import_and_activate(Path(file_name), name.strip()),
-                lambda _: self.refresh(),
+                lambda: self.service.import_and_sync(Path(file_name), name.strip()),
+                self._after_theme_switch,
             )
+
+    def open_theme_editor(self, theme: ThemeRecord) -> None:
+        ThemeEditorDialog(self, theme).exec()
+
+    def configure_selected(self, theme: ThemeRecord, options: dict[str, object]) -> None:
+        self._run(
+            f"保存主题显示参数：{theme.name}",
+            lambda: self.service.configure_and_sync(theme, options),
+            self._after_theme_switch,
+        )
 
     def connect_codex(self) -> None:
         answer = QMessageBox.question(
@@ -603,6 +767,9 @@ class MainWindow(QMainWindow):
 
     def verify(self) -> None:
         self._run("验证当前皮肤", self.service.verify, lambda message: self._log(message))
+
+    def show_diagnostics(self) -> None:
+        self._run("读取主题连接诊断", self.service.diagnose, lambda diagnostic: DiagnosticsDialog(self, diagnostic).exec())
 
     def restore_codex(self) -> None:
         answer = QMessageBox.warning(

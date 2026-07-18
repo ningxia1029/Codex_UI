@@ -9,6 +9,7 @@ def test_theme_record_accepts_backend_payload_with_palette_and_image():
                 "name": "库洛米紫夜",
                 "appearance": "dark",
                 "image": "art.png",
+                "art": {"focusX": 0.78, "focusY": 0.53, "safeArea": "left", "taskMode": "ambient"},
                 "palette": {"accent": "#B872FF"},
             },
             "imagePath": r"C:\\theme\\art.png",
@@ -21,6 +22,10 @@ def test_theme_record_accepts_backend_payload_with_palette_and_image():
     assert record.name == "库洛米紫夜"
     assert record.image_path.name == "art.png"
     assert record.accent == "#B872FF"
+    assert record.focus_x == 0.78
+    assert record.focus_y == 0.53
+    assert record.safe_area == "left"
+    assert record.task_mode == "ambient"
     assert record.source == "saved"
 
 

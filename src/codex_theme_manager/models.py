@@ -18,6 +18,10 @@ class ThemeRecord:
     source: str
     subtitle: str = ""
     tagline: str = ""
+    focus_x: float | None = None
+    focus_y: float | None = None
+    safe_area: str = "auto"
+    task_mode: str = "auto"
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any], *, source: str) -> "ThemeRecord":
@@ -31,7 +35,16 @@ class ThemeRecord:
             raise ValueError("Theme payload does not include an image path.")
 
         palette = theme.get("palette") or {}
+        art = theme.get("art") or {}
         accent = palette.get("accent") if isinstance(palette, Mapping) else None
+        focus_x = _unit_interval(art.get("focusX")) if isinstance(art, Mapping) else None
+        focus_y = _unit_interval(art.get("focusY")) if isinstance(art, Mapping) else None
+        safe_area = str(art.get("safeArea") or "auto") if isinstance(art, Mapping) else "auto"
+        task_mode = str(art.get("taskMode") or "auto") if isinstance(art, Mapping) else "auto"
+        if safe_area not in {"auto", "left", "right", "center", "none"}:
+            safe_area = "auto"
+        if task_mode not in {"auto", "ambient", "banner", "off"}:
+            task_mode = "auto"
         directory = payload.get("directory")
         return cls(
             id=theme_id,
@@ -43,7 +56,23 @@ class ThemeRecord:
             source=source,
             subtitle=str(theme.get("brandSubtitle") or ""),
             tagline=str(theme.get("tagline") or ""),
+            focus_x=focus_x,
+            focus_y=focus_y,
+            safe_area=safe_area,
+            task_mode=task_mode,
         )
+
+
+def _unit_interval(value: Any) -> float | None:
+    """只把主题元数据中的有效焦点值暴露给显示层。"""
+
+    if value is None or value == "":
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if 0.0 <= result <= 1.0 else None
 
 
 def visible_themes(active: ThemeRecord | None, saved: list[ThemeRecord]) -> list[ThemeRecord]:
@@ -78,6 +107,8 @@ class RuntimeStatus:
     injector_running: bool
     port: int | None
     message: str
+    watcher_alive: bool = False
+    cdp_ready: bool = False
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> "RuntimeStatus":
@@ -98,6 +129,8 @@ class RuntimeStatus:
             injector_running=injector_running,
             port=int(state["port"]) if isinstance(state, Mapping) and state.get("port") else None,
             message=str(payload.get("message") or "状态已刷新"),
+            watcher_alive=bool(payload.get("watcherAlive")),
+            cdp_ready=bool(payload.get("cdpReady")),
         )
 
 
@@ -108,4 +141,6 @@ def describe_theme_switch(status: RuntimeStatus) -> str:
         return "主题已切换；当前连接处于暂停状态，请在设置中重新连接 Codex。"
     if status.injector_running:
         return "主题已切换；活动的 Codex 连接会自动同步，通常无需关闭窗口。"
-    return "主题已设为当前；首次连接或连接已停止时，请在设置中连接 Codex。"
+    if status.watcher_alive:
+        return "主题已设为当前；检测到旧 watcher 但 CDP 已失效，切换时会请求一次受控重新连接。"
+    return "主题已设为当前；切换时会自动尝试建立连接，首次连接可能需要确认一次重启。"

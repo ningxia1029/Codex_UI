@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import dataclass
+import json
+from typing import Mapping
 
 from .bridge import PowerShellBridge
 from .models import RuntimeStatus, ThemeRecord
+
+
+@dataclass(frozen=True)
+class ThemeSyncResult:
+    """一次主题切换后的真实连接状态。
+
+    ``reconnected`` 为真表示原 watcher 不可用，本次已成功建立新的已验证会话；
+    它不是“仅写入了主题文件”的乐观标记。
+    """
+
+    active: ThemeRecord
+    status: RuntimeStatus
+    reconnected: bool
 
 
 class ThemeService:
@@ -27,16 +43,50 @@ class ThemeService:
             self.bridge.invoke("activate", ThemeDirectory=str(theme.directory)), source="active"
         )
 
-    def activate_with_status(self, theme: ThemeRecord) -> tuple[ThemeRecord, RuntimeStatus]:
-        """切换活动主题后立即读取连接状态，供 GUI 说明是否会热切换。"""
+    def _ensure_live_connection(self) -> tuple[RuntimeStatus, bool]:
+        """只在验证失败时重新连接，避免热切换时不必要地重启 Codex。"""
 
-        active = self.activate(theme)
-        return active, self.status()
+        before = self.status()
+        if before.paused or before.injector_running:
+            return before, False
+
+        self.apply()
+        after = self.status()
+        return after, after.injector_running
+
+    def activate_and_sync(self, theme: ThemeRecord) -> ThemeSyncResult:
+        """切换主题并确保它不会停留在未连接的假成功状态。"""
+
+        active = self.activate(theme) if theme.source != "active" else theme
+        status, reconnected = self._ensure_live_connection()
+        return ThemeSyncResult(active=active, status=status, reconnected=reconnected)
+
+    def activate_with_status(self, theme: ThemeRecord) -> tuple[ThemeRecord, RuntimeStatus]:
+        """兼容 v0.2 调用方；新界面应使用 ``activate_and_sync``。"""
+
+        result = self.activate_and_sync(theme)
+        return result.active, result.status
 
     def import_and_activate(self, image_path: Path, name: str) -> ThemeRecord:
         return ThemeRecord.from_payload(
             self.bridge.invoke("import", ImagePath=str(image_path), Name=name), source="active"
         )
+
+    def import_and_sync(self, image_path: Path, name: str) -> ThemeSyncResult:
+        active = self.import_and_activate(image_path, name)
+        status, reconnected = self._ensure_live_connection()
+        return ThemeSyncResult(active=active, status=status, reconnected=reconnected)
+
+    def configure_and_sync(self, theme: ThemeRecord, options: Mapping[str, object]) -> ThemeSyncResult:
+        """切换（若需要）并写入活动主题的展示参数。"""
+
+        initial = self.activate_and_sync(theme)
+        payload = self.bridge.invoke(
+            "configure",
+            ThemeOptionsJson=json.dumps(dict(options), ensure_ascii=False, separators=(",", ":")),
+        )
+        active = ThemeRecord.from_payload(payload, source="active")
+        return ThemeSyncResult(active=active, status=self.status(), reconnected=initial.reconnected)
 
     def save_current(self, name: str) -> ThemeRecord:
         return ThemeRecord.from_payload(self.bridge.invoke("save", Name=name), source="saved")
@@ -46,3 +96,6 @@ class ThemeService:
 
     def verify(self) -> str:
         return str(self.bridge.invoke("verify", timeout=120).get("message") or "验证已完成。")
+
+    def diagnose(self) -> dict:
+        return self.bridge.invoke("diagnose")

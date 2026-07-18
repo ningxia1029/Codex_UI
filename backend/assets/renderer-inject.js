@@ -106,7 +106,7 @@
   const existingStyle = document.getElementById(STYLE_ID);
   if (existingStyle) {
     existingStyle.textContent = cssText;
-    existingStyle.dataset.dreamVersion = "3";
+    existingStyle.dataset.dreamVersion = "4";
   }
 
   const analyzeArt = () => new Promise((resolve) => {
@@ -342,9 +342,9 @@
       style.id = STYLE_ID;
       (document.head || root).appendChild(style);
     }
-    if (style.dataset.dreamVersion !== "3") {
+    if (style.dataset.dreamVersion !== "4") {
       style.textContent = cssText;
-      style.dataset.dreamVersion = "3";
+      style.dataset.dreamVersion = "4";
     }
 
     const home = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
@@ -403,7 +403,7 @@
   });
   const timer = setInterval(ensure, 5000);
   window[STATE_KEY] = {
-    ensure, cleanup, observer, timer, scheduler, artUrl, profile, config, installToken, version: "1.2.0",
+    ensure, cleanup, observer, timer, scheduler, artUrl, profile, config, installToken, version: "1.3.0",
   };
   ensure();
   analyzeArt().then((result) => {
@@ -413,5 +413,5 @@
     state.profile = result;
     ensure();
   });
-  return { installed: true, version: "1.2.0", adaptive: true };
+  return { installed: true, version: "1.3.0", adaptive: true };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

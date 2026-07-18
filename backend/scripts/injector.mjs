@@ -7,7 +7,7 @@ import { readImageMetadata } from "./image-metadata.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const here = path.dirname(scriptPath);
 const root = path.resolve(here, "..");
-const SKIN_VERSION = "1.2.0";
+const SKIN_VERSION = "1.3.0";
 const MAX_ART_BYTES = 16 * 1024 * 1024;
 const STRONG_THEME_AUDIT_MS = 30000;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
@@ -25,6 +25,7 @@ function parseArgs(argv) {
     browserId: null,
     themeDir: path.join(root, "assets"),
     pauseFile: null,
+    stateFile: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     else if (arg === "--browser-id") options.browserId = argv[++i];
     else if (arg === "--theme-dir") options.themeDir = path.resolve(argv[++i]);
     else if (arg === "--pause-file") options.pauseFile = path.resolve(argv[++i]);
+    else if (arg === "--state-file") options.stateFile = path.resolve(argv[++i]);
     else if (arg === "--screenshot") options.screenshot = path.resolve(argv[++i]);
     else if (arg === "--reload") options.reload = true;
     else if (arg === "--self-test") options.mode = "self-test";
@@ -56,6 +58,23 @@ function parseArgs(argv) {
     throw new Error(`--browser-id is required in ${options.mode} mode`);
   }
   return options;
+}
+
+async function retireOwnedState(options, reason) {
+  // 只清理由当前 watcher 创建的状态，绝不删除新会话的 state.json。
+
+  if (!options.stateFile) return;
+  try {
+    const raw = await fs.readFile(options.stateFile, "utf8");
+    const state = JSON.parse(raw);
+    if (Number(state?.injectorPid) !== process.pid || state?.browserId !== options.browserId) return;
+    await fs.unlink(options.stateFile);
+    console.error(`[dream-skin] removed stale watcher state: ${reason}`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      console.error(`[dream-skin] could not retire watcher state: ${error.message}`);
+    }
+  }
 }
 
 function validatedDebuggerUrl(target, port) {
@@ -581,6 +600,10 @@ async function verifySession(session) {
     const home = document.querySelector('.dream-home');
     const suggestions = home?.querySelector('.group\\\\/home-suggestions') ?? null;
     const cards = suggestions ? [...suggestions.querySelectorAll('button')].map(box) : [];
+    const composer = box(document.querySelector('.composer-surface-chrome'));
+    const sidebar = box(document.querySelector('aside.app-shell-left-panel'));
+    const insideViewport = (rect) => Boolean(rect) && rect.width > 40 && rect.height > 20 &&
+      rect.x >= -2 && rect.y >= -2 && rect.x + rect.width <= innerWidth + 2 && rect.y + rect.height <= innerHeight + 2;
     const result = {
       installed: document.documentElement.classList.contains('codex-dream-skin'),
       version: window.__CODEX_DREAM_SKIN_STATE__?.version ?? null,
@@ -592,17 +615,22 @@ async function verifySession(session) {
       suggestionsPresent: Boolean(suggestions),
       hero: box(home?.firstElementChild?.firstElementChild?.firstElementChild),
       cards,
-      composer: box(document.querySelector('.composer-surface-chrome')),
-      sidebar: box(document.querySelector('aside.app-shell-left-panel')),
+      composer,
+      sidebar,
       viewport: { width: innerWidth, height: innerHeight },
       documentOverflow: {
         x: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         y: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       },
+      layout: {
+        composerInsideViewport: insideViewport(composer),
+        sidebarInsideViewport: insideViewport(sidebar),
+      },
     };
     result.pass = result.installed && result.version === result.expectedVersion &&
       result.stylePresent && result.chromePresent &&
       result.chromePointerEvents === 'none' && Boolean(result.composer) && Boolean(result.sidebar) &&
+      result.layout.composerInsideViewport && result.layout.sidebarInsideViewport &&
       (!result.homePresent || (Boolean(result.hero) &&
         (!result.suggestionsPresent || (result.cards.length >= 2 && result.cards.length <= 4))));
     return result;
@@ -704,6 +732,7 @@ async function runWatch(options) {
   let lastStrongThemeAuditAt = 0;
   let loadedPayload = null;
   let paused = false;
+  let terminalReason = null;
   const stop = () => { stopping = true; };
   const rejectTarget = (target, baseDelayMs, error = null) => {
     const previous = targetFailures.get(target.id) ?? { failures: 0, lastLogAt: 0 };
@@ -742,7 +771,8 @@ async function runWatch(options) {
     paused = await fileExists(options.pauseFile);
     while (!stopping) {
       if (identityAnchor.closed) {
-        console.error("[dream-skin] original CDP browser identity closed; watcher is stopping instead of reconnecting");
+        terminalReason = "CDP browser identity closed";
+        console.error("[dream-skin] original CDP browser identity closed; watcher is stopping and clearing its stale state");
         process.exitCode = 3;
         break;
       }
@@ -756,6 +786,16 @@ async function runWatch(options) {
         if (listFailures === 1 || Date.now() - lastListErrorLogAt >= 30000) {
           console.error(`[dream-skin] ${new Date().toISOString()} ${error.message}; retrying in ${retryMs}ms`);
           lastListErrorLogAt = Date.now();
+        }
+        // Electron can occasionally leave the browser WebSocket object open even
+        // after its debugging listener disappeared.  Do not keep a dead Node
+        // process in state.json forever: three failed polls is enough proof that
+        // a later GUI switch must perform a clean reconnect.
+        if (listFailures >= 3) {
+          terminalReason = "CDP endpoint unavailable after repeated polls";
+          console.error("[dream-skin] CDP endpoint remained unavailable; watcher is retiring");
+          process.exitCode = 3;
+          break;
         }
         await new Promise((resolve) => setTimeout(resolve, retryMs));
         continue;
@@ -922,6 +962,7 @@ async function runWatch(options) {
     earlyScripts.clear();
     fallbackTargets.clear();
     fallbackListeners.clear();
+    if (terminalReason) await retireOwnedState(options, terminalReason);
   }
 }
 

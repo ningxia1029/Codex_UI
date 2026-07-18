@@ -7,15 +7,23 @@ from PySide6.QtWidgets import QWidget
 from .models import ThemeRecord
 
 
-def _draw_cover(painter: QPainter, bounds: QRect, pixmap: QPixmap) -> None:
-    """以 cover 规则绘制壁纸，保持预览和工作台的裁切语义一致。"""
+def _draw_cover(
+    painter: QPainter,
+    bounds: QRect,
+    pixmap: QPixmap,
+    focus_x: float | None = None,
+    focus_y: float | None = None,
+) -> None:
+    """以与 CSS ``background-position`` 一致的 cover 规则绘制壁纸。"""
 
     scaled = pixmap.scaled(
         bounds.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation
     )
+    focus_x = min(1.0, max(0.0, 0.5 if focus_x is None else focus_x))
+    focus_y = min(1.0, max(0.0, 0.5 if focus_y is None else focus_y))
     source = QRect(
-        max(0, (scaled.width() - bounds.width()) // 2),
-        max(0, (scaled.height() - bounds.height()) // 2),
+        round(max(0, scaled.width() - bounds.width()) * focus_x),
+        round(max(0, scaled.height() - bounds.height()) * focus_y),
         min(bounds.width(), scaled.width()),
         min(bounds.height(), scaled.height()),
     )
@@ -43,7 +51,7 @@ class ThemeWorkspace(QWidget):
         if self._theme and self._theme.image_path.exists():
             pixmap = QPixmap(str(self._theme.image_path))
             if not pixmap.isNull():
-                _draw_cover(painter, bounds, pixmap)
+                _draw_cover(painter, bounds, pixmap, self._theme.focus_x, self._theme.focus_y)
 
         shade = QLinearGradient(QPointF(bounds.left(), bounds.top()), QPointF(bounds.right(), bounds.bottom()))
         shade.setColorAt(0.0, QColor(4, 7, 16, 236))
@@ -59,7 +67,7 @@ class CodexPreviewCanvas(QWidget):
         super().__init__(parent)
         self._theme: ThemeRecord | None = None
         self._task_mode = False
-        self.setMinimumSize(580, 410)
+        self.setMinimumSize(520, 360)
         self.setObjectName("codexPreview")
 
     def set_theme(self, theme: ThemeRecord | None) -> None:
@@ -106,7 +114,7 @@ class CodexPreviewCanvas(QWidget):
         painter.drawRoundedRect(rect, radius, radius)
 
     def _draw_sidebar(self, painter: QPainter, bounds: QRectF, accent: QColor) -> QRectF:
-        sidebar_width = max(178.0, min(254.0, bounds.width() * 0.255))
+        sidebar_width = max(166.0, min(238.0, bounds.width() * 0.245))
         sidebar = QRectF(bounds.left(), bounds.top(), sidebar_width, bounds.height())
         sidebar_gradient = QLinearGradient(sidebar.topLeft(), sidebar.topRight())
         sidebar_gradient.setColorAt(0.0, QColor(6, 10, 20, 214))
@@ -253,7 +261,7 @@ class CodexPreviewCanvas(QWidget):
         if self._theme and self._theme.image_path.exists():
             pixmap = QPixmap(str(self._theme.image_path))
             if not pixmap.isNull():
-                _draw_cover(painter, raw_bounds, pixmap)
+                _draw_cover(painter, raw_bounds, pixmap, self._theme.focus_x, self._theme.focus_y)
 
         shade = QLinearGradient(bounds.topLeft(), bounds.bottomRight())
         shade.setColorAt(0.0, QColor(3, 7, 16, 185))
@@ -276,7 +284,7 @@ class CodexPreviewCanvas(QWidget):
         app_bounds = bounds.adjusted(0, 37, 0, 0)
         accent = self._accent()
         sidebar = self._draw_sidebar(painter, app_bounds, accent)
-        content = QRectF(sidebar.right(), app_bounds.top(), app_bounds.right() - sidebar.right(), app_bounds.height())
+        content = QRectF(sidebar.right(), app_bounds.top(), max(1.0, app_bounds.right() - sidebar.right()), app_bounds.height())
         content_gradient = QLinearGradient(content.topLeft(), content.bottomRight())
         content_gradient.setColorAt(0.0, QColor(9, 13, 25, 74))
         content_gradient.setColorAt(1.0, QColor(5, 9, 18, 112))
