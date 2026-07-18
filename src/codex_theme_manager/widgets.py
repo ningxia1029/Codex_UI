@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
 from .models import ThemeRecord
@@ -36,28 +36,42 @@ class ThemeWorkspace(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._theme: ThemeRecord | None = None
+        self._wallpaper = QPixmap()
         self.setObjectName("workspace")
 
     def set_theme(self, theme: ThemeRecord | None) -> None:
         self._theme = theme
+        self._wallpaper = QPixmap(str(theme.image_path)) if theme and theme.image_path.exists() else QPixmap()
         self.update()
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         bounds = self.rect()
-        painter.fillRect(bounds, QColor("#080B13"))
+        painter.fillRect(bounds, QColor("#060A16"))
 
-        if self._theme and self._theme.image_path.exists():
-            pixmap = QPixmap(str(self._theme.image_path))
-            if not pixmap.isNull():
-                _draw_cover(painter, bounds, pixmap, self._theme.focus_x, self._theme.focus_y)
+        if self._theme and not self._wallpaper.isNull():
+            _draw_cover(painter, bounds, self._wallpaper, self._theme.focus_x, self._theme.focus_y)
 
+        # 采用静态渐变模拟 Acrylic/Mica 的空间感，不使用持续实时模糊，避免
+        # 高 DPI、窗口缩放或大壁纸下产生额外的 CPU/GPU 抖动。
         shade = QLinearGradient(QPointF(bounds.left(), bounds.top()), QPointF(bounds.right(), bounds.bottom()))
-        shade.setColorAt(0.0, QColor(4, 7, 16, 236))
-        shade.setColorAt(0.42, QColor(7, 10, 20, 166))
-        shade.setColorAt(1.0, QColor(3, 5, 12, 228))
+        shade.setColorAt(0.0, QColor(3, 8, 25, 232))
+        shade.setColorAt(0.46, QColor(8, 12, 31, 136))
+        shade.setColorAt(1.0, QColor(2, 6, 18, 226))
         painter.fillRect(bounds, shade)
+
+        aurora_left = QRadialGradient(QPointF(bounds.width() * 0.17, bounds.height() * 0.08), bounds.width() * 0.78)
+        aurora_left.setColorAt(0.0, QColor(72, 154, 255, 38))
+        aurora_left.setColorAt(0.56, QColor(88, 93, 235, 14))
+        aurora_left.setColorAt(1.0, QColor(8, 10, 24, 0))
+        painter.fillRect(bounds, aurora_left)
+
+        aurora_right = QRadialGradient(QPointF(bounds.width() * 0.86, bounds.height() * 0.18), bounds.width() * 0.64)
+        aurora_right.setColorAt(0.0, QColor(166, 113, 255, 32))
+        aurora_right.setColorAt(0.50, QColor(75, 201, 255, 13))
+        aurora_right.setColorAt(1.0, QColor(10, 12, 26, 0))
+        painter.fillRect(bounds, aurora_right)
 
 
 class CodexPreviewCanvas(QWidget):
@@ -66,12 +80,14 @@ class CodexPreviewCanvas(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._theme: ThemeRecord | None = None
+        self._wallpaper = QPixmap()
         self._task_mode = False
         self.setMinimumSize(520, 360)
         self.setObjectName("codexPreview")
 
     def set_theme(self, theme: ThemeRecord | None) -> None:
         self._theme = theme
+        self._wallpaper = QPixmap(str(theme.image_path)) if theme and theme.image_path.exists() else QPixmap()
         self.update()
 
     def set_task_mode(self, enabled: bool) -> None:
@@ -126,7 +142,7 @@ class CodexPreviewCanvas(QWidget):
         self._text(
             painter,
             QRectF(sidebar.left() + 16, sidebar.top() + 14, sidebar.width() - 32, 28),
-            "Codex⌄",
+            "Codex  ⌄",
             QColor("#F4F7FB"),
             11.5,
             weight=QFont.Weight.DemiBold,
@@ -140,7 +156,7 @@ class CodexPreviewCanvas(QWidget):
             flags=Qt.AlignmentFlag.AlignCenter,
         )
 
-        entries = (("＋", "新建任务"), ("◫", "主题预览"), ("◌", "最近任务"), ("⚙", "设置"))
+        entries = (("＋", "新建任务"), ("□", "主题预览"), ("◌", "最近任务"), ("⚙", "设置"))
         row_top = sidebar.top() + 88
         for index, (glyph, label) in enumerate(entries):
             row = QRectF(sidebar.left() + 10, row_top + index * 39, sidebar.width() - 20, 31)
@@ -174,7 +190,7 @@ class CodexPreviewCanvas(QWidget):
         self._text(
             painter,
             center,
-            "我们该构建什么？",
+            "今天想构建什么？",
             QColor(249, 250, 251, 246),
             title_size,
             flags=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
@@ -184,7 +200,7 @@ class CodexPreviewCanvas(QWidget):
         self._text(
             painter,
             subtitle,
-            "在本地预览主题氛围；不会读取、显示或发送你的项目与对话内容。",
+            "选择一张壁纸，在本地预览它如何融入 Codex 的工作空间。",
             QColor(228, 234, 245, 205),
             max(8.8, title_size * 0.43),
             flags=Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap,
@@ -223,7 +239,7 @@ class CodexPreviewCanvas(QWidget):
         self._text(
             painter,
             content.adjusted(28, 53, -28, -content.height() + 80),
-            "本地模拟任务视图",
+            "本地模拟任务视图 · 不读取真实内容",
             QColor(196, 207, 224, 185),
             9.4,
         )
@@ -258,15 +274,13 @@ class CodexPreviewCanvas(QWidget):
         clip.addRoundedRect(bounds, 14, 14)
         painter.save()
         painter.setClipPath(clip)
-        if self._theme and self._theme.image_path.exists():
-            pixmap = QPixmap(str(self._theme.image_path))
-            if not pixmap.isNull():
-                _draw_cover(painter, raw_bounds, pixmap, self._theme.focus_x, self._theme.focus_y)
+        if self._theme and not self._wallpaper.isNull():
+            _draw_cover(painter, raw_bounds, self._wallpaper, self._theme.focus_x, self._theme.focus_y)
 
         shade = QLinearGradient(bounds.topLeft(), bounds.bottomRight())
-        shade.setColorAt(0.0, QColor(3, 7, 16, 185))
-        shade.setColorAt(0.45, QColor(9, 12, 25, 82))
-        shade.setColorAt(1.0, QColor(4, 8, 17, 150))
+        shade.setColorAt(0.0, QColor(3, 7, 16, 212))
+        shade.setColorAt(0.45, QColor(12, 16, 35, 72))
+        shade.setColorAt(1.0, QColor(4, 8, 17, 168))
         painter.fillRect(bounds, shade)
 
         topbar = QRectF(bounds.left(), bounds.top(), bounds.width(), 37)

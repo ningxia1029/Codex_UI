@@ -39,7 +39,7 @@ from .widgets import CodexPreviewCanvas, ThemeWorkspace
 
 
 APP_NAME = "Codex Aura"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 T = TypeVar("T")
 
 
@@ -303,110 +303,121 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(
             """
             QWidget {
-                color: #EDF2F8;
+                color: #EEF3FA;
                 font-family: 'Segoe UI Variable', 'Microsoft YaHei UI', 'Segoe UI';
                 font-size: 13px;
             }
-            QMainWindow { background: #080B13; }
+            QMainWindow { background: #050915; }
             QMenuBar {
-                background: rgba(6, 8, 16, 232);
+                background: rgba(6, 9, 20, 220);
                 border: 0;
-                border-bottom: 1px solid rgba(255,255,255,18);
-                padding: 3px 10px;
+                border-bottom: 1px solid rgba(204, 222, 255, 15);
+                padding: 4px 14px;
             }
-            QMenuBar::item { background: transparent; border-radius: 7px; padding: 6px 10px; }
-            QMenuBar::item:selected { background: rgba(255,255,255,20); }
-            QMenu { background: #101724; border: 1px solid rgba(255,255,255,34); padding: 5px; }
+            QMenuBar::item { background: transparent; border-radius: 8px; padding: 6px 10px; }
+            QMenuBar::item:selected { background: rgba(255,255,255,15); }
+            QMenu { background: #111A2B; border: 1px solid rgba(213, 226, 255, 40); padding: 6px; }
             QMenu::item { padding: 7px 24px 7px 12px; border-radius: 6px; }
-            QMenu::item:selected { background: rgba(68, 135, 192, 118); }
+            QMenu::item:selected { background: rgba(104, 153, 232, 92); }
             QLabel { background: transparent; }
-            QLabel#eyebrow { color: #86D7FF; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-            QLabel#title { color: #FBFDFF; font-size: 21px; font-weight: 700; }
+            QLabel#eyebrow { color: #9FC8FF; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }
+            QLabel#title { color: #FBFDFF; font-size: 22px; font-weight: 700; }
             QLabel#dialogTitle { color: #FAFCFF; font-size: 20px; font-weight: 700; }
-            QLabel#muted { color: #B7C5D7; }
+            QLabel#muted { color: #ACB9CF; }
             QLabel#statusPill {
-                color: #B9EDFF;
-                background: rgba(16, 74, 95, 125);
-                border: 1px solid rgba(88, 204, 241, 85);
-                border-radius: 9px;
-                padding: 4px 9px;
+                color: #C3E7FF;
+                background: rgba(45, 103, 145, 82);
+                border: 1px solid rgba(134, 207, 255, 69);
+                border-radius: 11px;
+                padding: 5px 10px;
             }
             QLabel#callout {
-                color: #C4D2E4;
-                background: rgba(22, 47, 74, 135);
-                border-left: 3px solid #52D1FF;
-                border-radius: 7px;
-                padding: 9px 11px;
+                color: #C7D6E9;
+                background: rgba(20, 34, 61, 118);
+                border: 1px solid rgba(151, 185, 255, 34);
+                border-left: 2px solid #77B7FF;
+                border-radius: 10px;
+                padding: 10px 11px;
             }
             QFrame#appShell {
-                background: rgba(7, 12, 23, 188);
-                border: 1px solid rgba(196, 219, 245, 46);
-                border-radius: 16px;
+                background: rgba(9, 15, 31, 176);
+                border: 1px solid rgba(206, 224, 255, 48);
+                border-radius: 22px;
             }
             QFrame#sideRail {
-                background: rgba(7, 12, 23, 166);
+                background: rgba(8, 14, 30, 142);
                 border: 0;
-                border-right: 1px solid rgba(255,255,255,24);
-                border-top-left-radius: 15px;
-                border-bottom-left-radius: 15px;
+                border-right: 1px solid rgba(222, 234, 255, 19);
+                border-top-left-radius: 21px;
+                border-bottom-left-radius: 21px;
             }
-            QFrame#previewRail { background: rgba(8, 13, 25, 74); border: 0; }
+            QFrame#previewRail { background: rgba(12, 19, 39, 40); border: 0; }
             QFrame#actionRail {
-                background: rgba(7, 12, 23, 174);
+                background: rgba(8, 14, 30, 132);
                 border: 0;
-                border-left: 1px solid rgba(255,255,255,24);
-                border-top-right-radius: 15px;
-                border-bottom-right-radius: 15px;
+                border-left: 1px solid rgba(222, 234, 255, 19);
+                border-top-right-radius: 21px;
+                border-bottom-right-radius: 21px;
+            }
+            QFrame#inspectorCard {
+                background: rgba(10, 17, 35, 112);
+                border: 1px solid rgba(202, 221, 255, 24);
+                border-radius: 14px;
+            }
+            QFrame#previewStage {
+                background: rgba(4, 9, 21, 78);
+                border: 1px solid rgba(204, 226, 255, 35);
+                border-radius: 16px;
             }
             QFrame#activityStrip {
-                background: rgba(4, 8, 17, 152);
-                border: 1px solid rgba(196, 219, 245, 37);
-                border-radius: 12px;
+                background: rgba(7, 12, 27, 128);
+                border: 1px solid rgba(196, 219, 245, 28);
+                border-radius: 14px;
             }
-            QSplitter::handle { background: rgba(255,255,255,20); width: 1px; }
-            QSplitter::handle:hover { background: rgba(116, 213, 255, 132); }
+            QSplitter::handle { background: rgba(255,255,255,10); width: 1px; }
+            QSplitter::handle:hover { background: rgba(128, 194, 255, 98); }
             QPushButton, QToolButton {
-                background: rgba(20, 39, 65, 178);
-                border: 1px solid rgba(123, 181, 229, 88);
-                border-radius: 9px;
+                background: rgba(28, 48, 82, 112);
+                border: 1px solid rgba(140, 181, 240, 62);
+                border-radius: 10px;
                 padding: 8px 12px;
                 min-height: 18px;
             }
             QPushButton:hover, QToolButton:hover {
-                background: rgba(38, 75, 114, 218);
-                border-color: rgba(135, 224, 255, 195);
+                background: rgba(56, 89, 139, 164);
+                border-color: rgba(160, 213, 255, 154);
             }
             QPushButton:disabled { color: #718096; background: rgba(17, 28, 46, 130); border-color: rgba(255,255,255,20); }
-            QPushButton#primary { background: rgba(8, 132, 164, 226); border-color: #52DBFF; color: white; font-weight: 700; }
-            QPushButton#primary:hover { background: rgba(11, 155, 191, 240); }
-            QPushButton#danger { background: rgba(80, 24, 43, 214); border-color: #F37E9E; }
+            QPushButton#primary { background: rgba(49, 126, 217, 208); border-color: #8ED0FF; color: white; font-weight: 700; }
+            QPushButton#primary:hover { background: rgba(67, 147, 237, 230); }
+            QPushButton#danger { background: rgba(91, 29, 54, 184); border-color: rgba(244, 143, 177, 184); }
             QToolButton#viewToggle { min-width: 50px; padding: 7px 11px; }
-            QToolButton#viewToggle:checked { background: rgba(35, 93, 133, 224); border-color: #73D9FF; color: #FFFFFF; }
+            QToolButton#viewToggle:checked { background: rgba(65, 118, 204, 148); border-color: #9CCEFF; color: #FFFFFF; }
             QListWidget { background: transparent; border: 0; outline: none; padding: 4px 3px; }
             QListWidget::item {
                 background: transparent;
                 border: 0;
-                border-left: 3px solid transparent;
-                border-radius: 8px;
-                padding: 9px 8px;
-                margin: 2px 0;
+                border-left: 2px solid transparent;
+                border-radius: 10px;
+                padding: 10px 8px;
+                margin: 3px 0;
             }
-            QListWidget::item:hover { background: rgba(255,255,255,17); }
+            QListWidget::item:hover { background: rgba(255,255,255,12); }
             QListWidget::item:selected {
-                background: rgba(21, 111, 148, 150);
-                border-left: 3px solid #55D8FF;
+                background: rgba(79, 146, 215, 112);
+                border-left: 2px solid #84D6FF;
                 color: #FFFFFF;
             }
             QPlainTextEdit {
-                background: rgba(2, 6, 14, 118);
+                background: rgba(2, 6, 16, 126);
                 border: 0;
-                border-top: 1px solid rgba(255,255,255,24);
+                border-top: 1px solid rgba(255,255,255,16);
                 color: #CFE0F4;
                 font-family: Consolas, 'Microsoft YaHei UI', monospace;
                 font-size: 11px;
                 padding: 8px;
             }
-            QDialog { background: #101724; }
+            QDialog { background: #111A2B; }
             """
         )
         self._build_menu()
@@ -414,12 +425,12 @@ class MainWindow(QMainWindow):
         root = ThemeWorkspace()
         self.workspace = root
         layout = QVBoxLayout(root)
-        layout.setContentsMargins(16, 12, 16, 14)
-        layout.setSpacing(9)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)
 
         header = QHBoxLayout()
         header.setContentsMargins(6, 0, 6, 0)
-        brand = QLabel(APP_NAME)
+        brand = QLabel("Codex Aura")
         brand.setObjectName("title")
         header.addWidget(brand)
         header.addSpacing(12)
@@ -427,7 +438,7 @@ class MainWindow(QMainWindow):
         self.status_label.setObjectName("statusPill")
         header.addWidget(self.status_label)
         header.addStretch(1)
-        center_label = QLabel("为 Codex 增加一层安静的氛围")
+        center_label = QLabel("AURORA THEME STUDIO")
         center_label.setObjectName("eyebrow")
         header.addWidget(center_label)
         header.addStretch(1)
@@ -465,16 +476,27 @@ class MainWindow(QMainWindow):
 
         activity = QFrame()
         activity.setObjectName("activityStrip")
+        self.activity_panel = activity
         log_layout = QVBoxLayout(activity)
-        log_layout.setContentsMargins(12, 8, 12, 8)
+        log_layout.setContentsMargins(12, 7, 12, 7)
         log_layout.setSpacing(4)
+        log_header = QHBoxLayout()
         log_title = QLabel("运行记录")
         log_title.setObjectName("muted")
-        log_layout.addWidget(log_title)
+        log_header.addWidget(log_title)
+        log_header.addStretch(1)
+        self.log_toggle = QToolButton()
+        self.log_toggle.setText("展开")
+        self.log_toggle.setCheckable(True)
+        self.log_toggle.setObjectName("viewToggle")
+        self.log_toggle.toggled.connect(self._toggle_activity)
+        log_header.addWidget(self.log_toggle)
+        log_layout.addLayout(log_header)
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setMaximumBlockCount(300)
-        self.log_view.setFixedHeight(92)
+        self.log_view.setFixedHeight(108)
+        self.log_view.setVisible(False)
         log_layout.addWidget(self.log_view)
         layout.addWidget(activity)
         self.setCentralWidget(root)
@@ -504,7 +526,7 @@ class MainWindow(QMainWindow):
         title = QLabel("主题库")
         title.setObjectName("eyebrow")
         layout.addWidget(title)
-        hint = QLabel("先预览；在“设置”中应用主题时会自动检查并恢复可用连接。")
+        hint = QLabel("从本地主题库挑选壁纸；预览不会读取真实任务或对话。")
         hint.setWordWrap(True)
         hint.setObjectName("muted")
         layout.addWidget(hint)
@@ -513,7 +535,7 @@ class MainWindow(QMainWindow):
         self.theme_list.setSpacing(1)
         self.theme_list.currentItemChanged.connect(self.on_theme_selected)
         layout.addWidget(self.theme_list, 1)
-        import_button = QPushButton("导入图片并切换")
+        import_button = QPushButton("导入主题壁纸")
         import_button.clicked.connect(self.import_image)
         layout.addWidget(import_button)
         return panel
@@ -543,9 +565,14 @@ class MainWindow(QMainWindow):
         top.addWidget(self.home_toggle)
         top.addWidget(self.task_toggle)
         layout.addLayout(top)
+        stage = QFrame()
+        stage.setObjectName("previewStage")
+        stage_layout = QVBoxLayout(stage)
+        stage_layout.setContentsMargins(10, 10, 10, 10)
         self.preview = CodexPreviewCanvas()
-        layout.addWidget(self.preview, 1)
-        hint = QLabel("匿名模拟预览 · 不会接触真实 Codex 项目或对话")
+        stage_layout.addWidget(self.preview)
+        layout.addWidget(stage, 1)
+        hint = QLabel("匿名模拟预览 · 本地绘制，不接触真实 Codex 内容")
         hint.setObjectName("muted")
         layout.addWidget(hint)
         return panel
@@ -564,15 +591,21 @@ class MainWindow(QMainWindow):
         title = QLabel("已选主题")
         title.setObjectName("eyebrow")
         layout.addWidget(title)
+        inspector = QFrame()
+        inspector.setObjectName("inspectorCard")
+        inspector_layout = QVBoxLayout(inspector)
+        inspector_layout.setContentsMargins(13, 13, 13, 13)
+        inspector_layout.setSpacing(7)
         self.theme_name = QLabel("尚未选择主题")
         self.theme_name.setWordWrap(True)
         self.theme_name.setObjectName("title")
-        layout.addWidget(self.theme_name)
+        inspector_layout.addWidget(self.theme_name)
         self.theme_details = QLabel("读取中…")
         self.theme_details.setObjectName("muted")
         self.theme_details.setWordWrap(True)
-        layout.addWidget(self.theme_details)
-        self.action_hint = QLabel("预览不影响 Codex；应用主题时会自动检查连接状态。")
+        inspector_layout.addWidget(self.theme_details)
+        layout.addWidget(inspector)
+        self.action_hint = QLabel("预览不会影响 Codex；应用主题时才会检查连接状态。")
         self.action_hint.setObjectName("callout")
         self.action_hint.setWordWrap(True)
         layout.addWidget(self.action_hint)
@@ -596,6 +629,10 @@ class MainWindow(QMainWindow):
         self.preview_button.setDisabled(busy)
         self.settings_button.setDisabled(busy)
         self.restore_button.setDisabled(busy)
+
+    def _toggle_activity(self, expanded: bool) -> None:
+        self.log_view.setVisible(expanded)
+        self.log_toggle.setText("收起" if expanded else "展开")
 
     def _log(self, message: str) -> None:
         self.log_view.appendPlainText(message)
