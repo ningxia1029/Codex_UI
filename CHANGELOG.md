@@ -2,6 +2,19 @@
 
 All notable changes to Codex Aura are documented here.
 
+## 0.4.1 - 2026-07-18
+
+### Fixed
+
+- 修复断连后“应用主题”在隐藏 PowerShell 中等待 COM 确认框、最终触发 90 秒超时的问题。
+- 重新连接确认改由 Qt 主窗口展示；用户取消时不启动后台重连，也不修改活动主题。
+- 后端 `apply` 改为无交互协议：只有 Qt 已明确确认时才传入 `-RestartExisting`。
+- PowerShell 运行超时改为可读错误信息，不再向用户展示 Python `subprocess` 命令文本。
+
+### Build
+
+- `build_exe.ps1` 支持 `-Python`、`-DistDir`、`-WorkDir`，可用隔离发布环境构建新测试目录而不覆盖旧包。
+
 ## 0.4.0 - 2026-07-18
 
 ### Added

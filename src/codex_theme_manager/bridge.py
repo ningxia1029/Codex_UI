@@ -35,12 +35,16 @@ class PowerShellBridge:
             os.environ.get("WINDIR", r"C:\\Windows"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"
         )
 
-    def build_command(self, operation: str, **parameters: str) -> list[str]:
+    def build_command(self, operation: str, **parameters: str | bool) -> list[str]:
         if operation not in self._OPERATIONS:
             raise ValueError(f"Unsupported backend operation: {operation}")
         command = [self.powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(self.script_path)]
         for key, value in parameters.items():
-            if value is not None:
+            # PowerShell switch 参数使用“仅传入参数名”的形式，避免把 Python 的
+            # True/False 字符串当作普通位置参数。GUI 绝不触发后端交互式弹窗。
+            if value is True:
+                command.append(f"-{key}")
+            elif value is not None and value is not False:
                 command.extend([f"-{key}", str(value)])
         command.extend(["-Operation", operation])
         return command
@@ -53,17 +57,22 @@ class PowerShellBridge:
             environment["CODEX_DREAM_SKIN_NODE"] = str(self.bundled_node_path)
         return environment
 
-    def invoke(self, operation: str, *, timeout: int = 90, **parameters: str) -> dict[str, Any]:
-        completed = subprocess.run(
-            self.build_command(operation, **parameters),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            check=False,
-            env=self.build_environment(),
-        )
+    def invoke(self, operation: str, *, timeout: int = 90, **parameters: str | bool) -> dict[str, Any]:
+        try:
+            completed = subprocess.run(
+                self.build_command(operation, **parameters),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                check=False,
+                env=self.build_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise BackendError(
+                f"后端在 {timeout} 秒内未完成“{operation}”。未执行自动重试；请打开主题连接诊断查看状态。"
+            ) from exc
         lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
         try:
             payload = json.loads(lines[-1]) if lines else {}

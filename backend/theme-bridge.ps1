@@ -7,7 +7,8 @@ param(
   [string]$ImagePath,
   [string]$Name,
   [string]$ScreenshotPath,
-  [string]$ThemeOptionsJson
+  [string]$ThemeOptionsJson,
+  [switch]$RestartExisting
 )
 
 $ErrorActionPreference = 'Stop'
@@ -188,7 +189,11 @@ try {
       Write-DreamSkinBridgeResult -Data (Set-DreamSkinActiveThemeOptions -OptionsJson $ThemeOptionsJson)
     }
     'apply' {
-      & (Join-Path $scripts 'start-dream-skin.ps1') -PromptRestart
+      # GUI 已在 Qt 主线程中取得明确同意；桥接进程保持无交互，不能在隐藏
+      # PowerShell 中调用 COM 弹窗，否则 Python 只能在超时后强制终止它。
+      $startArguments = @()
+      if ($RestartExisting) { $startArguments += '-RestartExisting' }
+      & (Join-Path $scripts 'start-dream-skin.ps1') @startArguments
       Write-DreamSkinBridgeResult -Data ([pscustomobject]@{ message = '已请求应用或重新应用 Codex Dream Skin。' })
     }
     'verify' {

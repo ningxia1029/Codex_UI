@@ -33,3 +33,14 @@ def test_bridge_exports_a_bundled_node_runtime_when_available(tmp_path):
     bridge = PowerShellBridge(backend)
 
     assert bridge.build_environment()["CODEX_DREAM_SKIN_NODE"] == str(node)
+
+
+def test_bridge_emits_powershell_switch_only_when_explicitly_enabled():
+    bridge = PowerShellBridge(Path(r"C:\\CodexDreamSkinManager\\backend"))
+
+    without_restart = bridge.build_command("apply", RestartExisting=False)
+    with_restart = bridge.build_command("apply", RestartExisting=True)
+
+    assert "-RestartExisting" not in without_restart
+    assert "-RestartExisting" in with_restart
+    assert with_restart[-2:] == ["-Operation", "apply"]

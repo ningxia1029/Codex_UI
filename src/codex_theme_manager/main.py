@@ -34,12 +34,12 @@ from shiboken6 import isValid
 
 from .models import RuntimeStatus, ThemeRecord, describe_theme_switch, visible_themes
 from .runtime import backend_root, resource_root
-from .service import ThemeService, ThemeSyncResult
+from .service import ReconnectRequired, ThemeService, ThemeSyncResult
 from .widgets import CodexPreviewCanvas, ThemeWorkspace
 
 
 APP_NAME = "Codex Aura"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.4.1"
 T = TypeVar("T")
 
 
@@ -739,7 +739,52 @@ class MainWindow(QMainWindow):
         theme = self.selected_theme()
         if not theme:
             return
-        self._run(f"应用主题：{theme.name}", lambda: self.service.activate_and_sync(theme), self._after_theme_switch)
+        self._start_theme_sync(
+            f"应用主题：{theme.name}",
+            lambda allow_restart: self.service.activate_and_sync(theme, allow_restart=allow_restart),
+        )
+
+    def _start_theme_sync(
+        self, description: str, operation: Callable[[bool], ThemeSyncResult]
+    ) -> None:
+        """先在 Qt 中确认重连，再启动没有交互弹窗的后台 PowerShell。"""
+
+        self._run(
+            "检查 Codex 主题连接",
+            self.service.status,
+            lambda status: self._continue_theme_sync(description, status, operation),
+        )
+
+    def _continue_theme_sync(
+        self, description: str, status: RuntimeStatus, operation: Callable[[bool], ThemeSyncResult]
+    ) -> None:
+        allow_restart = False
+        if not status.paused and not status.injector_running:
+            answer = QMessageBox.warning(
+                self,
+                "需要重新连接 Codex",
+                "当前 Codex 未处于可热修改的主题会话。\n\n"
+                "要恢复主题同步，Codex 将被关闭并以仅绑定本机 127.0.0.1 的调试端口重新启动。"
+                "未保存的输入可能丢失。\n\n是否继续？",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                self._log("已取消重新连接；当前 Codex 与主题文件均未被本次操作修改。")
+                self._update_runtime_status(status)
+                return
+            allow_restart = True
+
+        def sync() -> ThemeSyncResult:
+            try:
+                return operation(allow_restart)
+            except ReconnectRequired as exc:
+                # 状态可能在用户确认后又发生变化。把它重新抛给界面，避免出现
+                # “未知错误”或在后台启动另一个交互式 PowerShell。
+                raise RuntimeError(f"{exc} 请再次执行应用主题并确认重新连接。") from exc
+
+        task_description = f"重新连接并{description}" if allow_restart else description
+        self._run(task_description, sync, self._after_theme_switch)
 
     def _after_theme_switch(self, result: ThemeSyncResult) -> None:
         self.active_theme = result.active
@@ -770,20 +815,22 @@ class MainWindow(QMainWindow):
         default = Path(file_name).stem
         name, accepted = QInputDialog.getText(self, "导入并切换", "主题名称：", text=default)
         if accepted and name.strip():
-            self._run(
-                f"导入并切换壁纸：{Path(file_name).name}",
-                lambda: self.service.import_and_sync(Path(file_name), name.strip()),
-                self._after_theme_switch,
+            self._start_theme_sync(
+                f"导入并同步壁纸：{Path(file_name).name}",
+                lambda allow_restart: self.service.import_and_sync(
+                    Path(file_name), name.strip(), allow_restart=allow_restart
+                ),
             )
 
     def open_theme_editor(self, theme: ThemeRecord) -> None:
         ThemeEditorDialog(self, theme).exec()
 
     def configure_selected(self, theme: ThemeRecord, options: dict[str, object]) -> None:
-        self._run(
+        self._start_theme_sync(
             f"保存主题显示参数：{theme.name}",
-            lambda: self.service.configure_and_sync(theme, options),
-            self._after_theme_switch,
+            lambda allow_restart: self.service.configure_and_sync(
+                theme, options, allow_restart=allow_restart
+            ),
         )
 
     def connect_codex(self) -> None:
@@ -795,7 +842,11 @@ class MainWindow(QMainWindow):
             "是否继续连接 / 重新连接？",
         )
         if answer == QMessageBox.StandardButton.Yes:
-            self._run("连接 Codex Dream Skin", self.service.apply, self._after_connect)
+            self._run(
+                "连接 Codex Dream Skin",
+                lambda: self.service.apply(restart_existing=True),
+                self._after_connect,
+            )
 
     def _after_connect(self, message: str) -> None:
         self._log(message)

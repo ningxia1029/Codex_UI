@@ -1,14 +1,17 @@
 ﻿[CmdletBinding()]
 param(
     [switch]$Clean,
-    [switch]$NoSlim
+    [switch]$NoSlim,
+    [string]$Python,
+    [string]$DistDir,
+    [string]$WorkDir
 )
 
 $ErrorActionPreference = 'Stop'
 $PROJECT_ROOT = $PSScriptRoot
-$PYTHON = Join-Path $PROJECT_ROOT '.venv\Scripts\python.exe'
-$DIST_DIR = Join-Path $PROJECT_ROOT 'dist'
-$BUILD_DIR = Join-Path $PROJECT_ROOT 'build'
+$PYTHON = if ($Python) { [System.IO.Path]::GetFullPath($Python) } else { Join-Path $PROJECT_ROOT '.venv\Scripts\python.exe' }
+$DIST_DIR = if ($DistDir) { [System.IO.Path]::GetFullPath($DistDir) } else { Join-Path $PROJECT_ROOT 'dist' }
+$BUILD_DIR = if ($WorkDir) { [System.IO.Path]::GetFullPath($WorkDir) } else { Join-Path $PROJECT_ROOT 'build' }
 $RESOURCES_DIR = Join-Path $PROJECT_ROOT 'resources'
 $ICON_PATH = Join-Path $RESOURCES_DIR 'branding\codex_aura.ico'
 
@@ -26,7 +29,7 @@ if (-not (Test-Path -LiteralPath $ICON_PATH)) {
 # 环境变量影响构建可复现性。
 $windows_root = 'C:\Windows'
 $path_entries = New-Object System.Collections.Generic.List[string]
-$path_entries.Add((Join-Path $PROJECT_ROOT '.venv\Scripts'))
+$path_entries.Add((Split-Path -Parent $PYTHON))
 $path_entries.Add((Join-Path $windows_root 'System32'))
 $path_entries.Add($windows_root)
 $env:PATH = [string]::Join(';', $path_entries)

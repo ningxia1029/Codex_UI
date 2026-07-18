@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from codex_theme_manager.models import ThemeRecord
-from codex_theme_manager.service import ThemeService
+import pytest
+
+from codex_theme_manager.service import ReconnectRequired, ThemeService
 
 
 def _theme_payload(*, source: str = "saved") -> dict:
@@ -42,7 +44,7 @@ class _Bridge:
         )
 
     def invoke(self, operation: str, **kwargs):
-        self.calls.append(operation)
+        self.calls.append((operation, kwargs))
         if operation == "activate":
             return _theme_payload()
         if operation == "status":
@@ -58,12 +60,13 @@ def test_activate_and_sync_reconnects_after_a_stale_watcher():
     service.bridge = bridge  # type: ignore[assignment]
     theme = ThemeRecord.from_payload(_theme_payload(), source="saved")
 
-    result = service.activate_and_sync(theme)
+    result = service.activate_and_sync(theme, allow_restart=True)
 
     assert result.active.name == "紫夜"
     assert result.reconnected is True
     assert result.status.injector_running is True
-    assert bridge.calls == ["activate", "status", "apply", "status"]
+    assert [call[0] for call in bridge.calls] == ["status", "activate", "apply", "status"]
+    assert bridge.calls[2][1]["RestartExisting"] is True
 
 
 def test_activate_and_sync_keeps_a_live_watcher_without_restarting_codex():
@@ -91,4 +94,16 @@ def test_activate_and_sync_keeps_a_live_watcher_without_restarting_codex():
     result = service.activate_and_sync(theme)
 
     assert result.reconnected is False
-    assert bridge.calls == ["activate", "status"]
+    assert [call[0] for call in bridge.calls] == ["status", "activate"]
+
+
+def test_activate_and_sync_requires_explicit_restart_permission_for_stale_connection():
+    service = ThemeService(Path("backend"))
+    bridge = _Bridge()
+    service.bridge = bridge  # type: ignore[assignment]
+    theme = ThemeRecord.from_payload(_theme_payload(), source="saved")
+
+    with pytest.raises(ReconnectRequired):
+        service.activate_and_sync(theme)
+
+    assert [call[0] for call in bridge.calls] == ["status"]
