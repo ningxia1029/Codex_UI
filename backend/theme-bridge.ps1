@@ -109,13 +109,26 @@ function Set-DreamSkinActiveThemeOptions {
   if ($accent -and $accent -notmatch '^(?:#[0-9a-fA-F]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$') {
     throw 'accent must be a supported CSS color.'
   }
+  $themeColor = "$($options.themeColor)".Trim()
+  if ($themeColor -and $themeColor -notmatch '^(?:#[0-9a-fA-F]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$') {
+    throw 'themeColor must be a supported CSS color.'
+  }
+  $imageOpacity = 0.0
+  if (-not [double]::TryParse("$($options.imageOpacity)", [System.Globalization.NumberStyles]::Float,
+      [System.Globalization.CultureInfo]::InvariantCulture, [ref]$imageOpacity) -or $imageOpacity -lt 0.15 -or $imageOpacity -gt 1) {
+    throw 'imageOpacity must be a number between 0.15 and 1.'
+  }
   $theme | Add-Member -NotePropertyName appearance -NotePropertyValue $appearance -Force
   $theme.art | Add-Member -NotePropertyName focusX -NotePropertyValue ([Math]::Round($focusX, 3)) -Force
   $theme.art | Add-Member -NotePropertyName focusY -NotePropertyValue ([Math]::Round($focusY, 3)) -Force
   $theme.art | Add-Member -NotePropertyName safeArea -NotePropertyValue $safeArea -Force
   $theme.art | Add-Member -NotePropertyName taskMode -NotePropertyValue $taskMode -Force
+  $theme.art | Add-Member -NotePropertyName opacity -NotePropertyValue ([Math]::Round($imageOpacity, 2)) -Force
   if ($accent) { $theme.palette | Add-Member -NotePropertyName accent -NotePropertyValue $accent -Force } elseif ($theme.palette.PSObject.Properties.Name -contains 'accent') {
     $theme.palette.PSObject.Properties.Remove('accent')
+  }
+  if ($themeColor) { $theme.palette | Add-Member -NotePropertyName themeColor -NotePropertyValue $themeColor -Force } elseif ($theme.palette.PSObject.Properties.Name -contains 'themeColor') {
+    $theme.palette.PSObject.Properties.Remove('themeColor')
   }
   Write-DreamSkinTheme -ThemeDirectory $paths.Active -Theme $theme
   return Convert-DreamSkinThemeRecord -Loaded (Read-DreamSkinTheme -ThemeDirectory $paths.Active -SkipImageMetadata)

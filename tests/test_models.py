@@ -9,8 +9,8 @@ def test_theme_record_accepts_backend_payload_with_palette_and_image():
                 "name": "库洛米紫夜",
                 "appearance": "dark",
                 "image": "art.png",
-                "art": {"focusX": 0.78, "focusY": 0.53, "safeArea": "left", "taskMode": "ambient"},
-                "palette": {"accent": "#B872FF"},
+                "art": {"focusX": 0.78, "focusY": 0.53, "safeArea": "left", "taskMode": "ambient", "opacity": 0.61},
+                "palette": {"accent": "#B872FF", "themeColor": "#0B1830"},
             },
             "imagePath": r"C:\\theme\\art.png",
             "directory": r"C:\\theme",
@@ -22,10 +22,12 @@ def test_theme_record_accepts_backend_payload_with_palette_and_image():
     assert record.name == "库洛米紫夜"
     assert record.image_path.name == "art.png"
     assert record.accent == "#B872FF"
+    assert record.theme_color == "#0B1830"
     assert record.focus_x == 0.78
     assert record.focus_y == 0.53
     assert record.safe_area == "left"
     assert record.task_mode == "ambient"
+    assert record.image_opacity == 0.61
     assert record.source == "saved"
 
 
@@ -35,6 +37,8 @@ def test_theme_record_uses_safe_fallbacks_for_partial_legacy_payload():
     assert record.name == "legacy"
     assert record.appearance == "auto"
     assert record.accent is None
+    assert record.theme_color is None
+    assert record.image_opacity == 0.68
 
 
 def test_visible_themes_deduplicates_the_active_theme_from_saved_library():

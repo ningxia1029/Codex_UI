@@ -2,6 +2,17 @@
 
 All notable changes to Codex Aura are documented here.
 
+## 0.4.2 - 2026-07-18
+
+### Added
+
+- 主题显示编辑器新增壁纸透明度滑杆和整体主题颜色选择器；配置保存到 `art.opacity`、`palette.themeColor`，并同步到本地预览与 Codex 注入 CSS。
+
+### Changed
+
+- 工作台三栏取消可见的硬分隔线和重复卡片描边，改用 10px 留白分隔、低透明度玻璃层与单一弱外壳边缘。
+- 深色 Codex 注入主题以整体主题颜色建立画布、阅读面和侧栏的统一基调；壁纸显示强度由透明度参数控制。
+
 ## 0.4.1 - 2026-07-18
 
 ### Fixed

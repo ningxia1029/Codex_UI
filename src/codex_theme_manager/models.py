@@ -15,6 +15,7 @@ class ThemeRecord:
     directory: Path | None
     appearance: str
     accent: str | None
+    theme_color: str | None
     source: str
     subtitle: str = ""
     tagline: str = ""
@@ -22,6 +23,7 @@ class ThemeRecord:
     focus_y: float | None = None
     safe_area: str = "auto"
     task_mode: str = "auto"
+    image_opacity: float = 0.68
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any], *, source: str) -> "ThemeRecord":
@@ -37,10 +39,12 @@ class ThemeRecord:
         palette = theme.get("palette") or {}
         art = theme.get("art") or {}
         accent = palette.get("accent") if isinstance(palette, Mapping) else None
+        theme_color = palette.get("themeColor") if isinstance(palette, Mapping) else None
         focus_x = _unit_interval(art.get("focusX")) if isinstance(art, Mapping) else None
         focus_y = _unit_interval(art.get("focusY")) if isinstance(art, Mapping) else None
         safe_area = str(art.get("safeArea") or "auto") if isinstance(art, Mapping) else "auto"
         task_mode = str(art.get("taskMode") or "auto") if isinstance(art, Mapping) else "auto"
+        image_opacity = _opacity(art.get("opacity")) if isinstance(art, Mapping) else 0.68
         if safe_area not in {"auto", "left", "right", "center", "none"}:
             safe_area = "auto"
         if task_mode not in {"auto", "ambient", "banner", "off"}:
@@ -53,6 +57,7 @@ class ThemeRecord:
             directory=Path(str(directory)) if directory else None,
             appearance=str(theme.get("appearance") or "auto"),
             accent=str(accent) if accent else None,
+            theme_color=str(theme_color) if theme_color else None,
             source=source,
             subtitle=str(theme.get("brandSubtitle") or ""),
             tagline=str(theme.get("tagline") or ""),
@@ -60,6 +65,7 @@ class ThemeRecord:
             focus_y=focus_y,
             safe_area=safe_area,
             task_mode=task_mode,
+            image_opacity=image_opacity,
         )
 
 
@@ -73,6 +79,18 @@ def _unit_interval(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return result if 0.0 <= result <= 1.0 else None
+
+
+def _opacity(value: Any) -> float:
+    """读取主题壁纸不透明度；旧主题保持与历史视觉接近的默认值。"""
+
+    if value is None or value == "":
+        return 0.68
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return 0.68
+    return min(1.0, max(0.15, result))
 
 
 def visible_themes(active: ThemeRecord | None, saved: list[ThemeRecord]) -> list[ThemeRecord]:

@@ -5,10 +5,11 @@ import sys
 from typing import Callable, TypeVar
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
-from PySide6.QtGui import QAction, QFont, QIcon, QPixmap
+from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QColorDialog,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -39,7 +40,7 @@ from .widgets import CodexPreviewCanvas, ThemeWorkspace
 
 
 APP_NAME = "Codex Aura"
-APP_VERSION = "0.4.1"
+APP_VERSION = "0.4.2"
 T = TypeVar("T")
 
 
@@ -109,9 +110,26 @@ class ThemeEditorDialog(QDialog):
         self.task_mode.setCurrentText(theme.task_mode)
         form.addRow("任务页壁纸", self.task_mode)
 
+        self.image_opacity, image_opacity_row = self._slider_row(
+            theme.image_opacity, "壁纸显示", minimum=15, default=0.68
+        )
+        form.addRow("壁纸透明度", image_opacity_row)
+
         self.accent = QLineEdit(theme.accent or "")
         self.accent.setPlaceholderText("留空表示按壁纸自动取色，例如 #B872FF")
         form.addRow("强调色", self.accent)
+
+        color_row = QWidget()
+        color_layout = QHBoxLayout(color_row)
+        color_layout.setContentsMargins(0, 0, 0, 0)
+        color_layout.setSpacing(8)
+        self.theme_color = QLineEdit(theme.theme_color or "#0B1830")
+        self.theme_color.setPlaceholderText("例如 #0B1830，留空采用深蓝默认值")
+        color_layout.addWidget(self.theme_color, 1)
+        choose_color = QPushButton("选色")
+        choose_color.clicked.connect(self._pick_theme_color)
+        color_layout.addWidget(choose_color)
+        form.addRow("整体主题颜色", color_row)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
@@ -120,13 +138,15 @@ class ThemeEditorDialog(QDialog):
         apply_button.clicked.connect(self._apply)
         layout.addWidget(buttons)
 
-    def _slider_row(self, value: float | None, axis: str) -> tuple[QSlider, QWidget]:
+    def _slider_row(
+        self, value: float | None, axis: str, *, minimum: int = 0, default: float = 0.5
+    ) -> tuple[QSlider, QWidget]:
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         slider = QSlider(Qt.Orientation.Horizontal)
-        slider.setRange(0, 100)
-        slider.setValue(round((0.5 if value is None else value) * 100))
+        slider.setRange(minimum, 100)
+        slider.setValue(max(minimum, round((default if value is None else value) * 100)))
         label = QLabel()
         label.setMinimumWidth(44)
         label.setObjectName("muted")
@@ -141,6 +161,14 @@ class ThemeEditorDialog(QDialog):
         layout.addWidget(label)
         return slider, row
 
+    def _pick_theme_color(self) -> None:
+        current = QColor(self.theme_color.text().strip())
+        color = QColorDialog.getColor(
+            current if current.isValid() else QColor("#0B1830"), self, "选择整体主题颜色"
+        )
+        if color.isValid():
+            self.theme_color.setText(color.name(QColor.NameFormat.HexRgb))
+
     def _apply(self) -> None:
         self.owner.configure_selected(
             self.theme,
@@ -150,7 +178,9 @@ class ThemeEditorDialog(QDialog):
                 "focusY": self.focus_y.value() / 100,
                 "safeArea": self.safe_area.currentText(),
                 "taskMode": self.task_mode.currentText(),
+                "imageOpacity": self.image_opacity.value() / 100,
                 "accent": self.accent.text().strip(),
+                "themeColor": self.theme_color.text().strip(),
             },
         )
         self.accept()
@@ -222,6 +252,8 @@ class ThemeSettingsDialog(QDialog):
         details = QLabel(
             f"显示模式：{theme.appearance}\n"
             f"壁纸文件：{theme.image_path.name}\n"
+            f"壁纸透明度：{round(theme.image_opacity * 100)}%\n"
+            f"整体主题色：{theme.theme_color or '深蓝默认'}\n"
             f"强调色：{theme.accent or '由壁纸自适应'}"
         )
         details.setObjectName("muted")
@@ -340,42 +372,40 @@ class MainWindow(QMainWindow):
                 padding: 10px 11px;
             }
             QFrame#appShell {
-                background: rgba(9, 15, 31, 176);
-                border: 1px solid rgba(206, 224, 255, 48);
+                background: rgba(8, 14, 29, 116);
+                border: 1px solid rgba(210, 226, 255, 24);
                 border-radius: 22px;
             }
             QFrame#sideRail {
-                background: rgba(8, 14, 30, 142);
+                background: rgba(8, 14, 30, 74);
                 border: 0;
-                border-right: 1px solid rgba(222, 234, 255, 19);
                 border-top-left-radius: 21px;
                 border-bottom-left-radius: 21px;
             }
-            QFrame#previewRail { background: rgba(12, 19, 39, 40); border: 0; }
+            QFrame#previewRail { background: rgba(12, 19, 39, 22); border: 0; }
             QFrame#actionRail {
-                background: rgba(8, 14, 30, 132);
+                background: rgba(8, 14, 30, 66);
                 border: 0;
-                border-left: 1px solid rgba(222, 234, 255, 19);
                 border-top-right-radius: 21px;
                 border-bottom-right-radius: 21px;
             }
             QFrame#inspectorCard {
-                background: rgba(10, 17, 35, 112);
-                border: 1px solid rgba(202, 221, 255, 24);
+                background: rgba(10, 17, 35, 62);
+                border: 1px solid rgba(202, 221, 255, 14);
                 border-radius: 14px;
             }
             QFrame#previewStage {
-                background: rgba(4, 9, 21, 78);
-                border: 1px solid rgba(204, 226, 255, 35);
+                background: rgba(4, 9, 21, 44);
+                border: 1px solid rgba(204, 226, 255, 13);
                 border-radius: 16px;
             }
             QFrame#activityStrip {
-                background: rgba(7, 12, 27, 128);
-                border: 1px solid rgba(196, 219, 245, 28);
+                background: rgba(7, 12, 27, 74);
+                border: 1px solid rgba(196, 219, 245, 16);
                 border-radius: 14px;
             }
-            QSplitter::handle { background: rgba(255,255,255,10); width: 1px; }
-            QSplitter::handle:hover { background: rgba(128, 194, 255, 98); }
+            QSplitter::handle { background: transparent; width: 10px; }
+            QSplitter::handle:hover { background: rgba(128, 194, 255, 18); }
             QPushButton, QToolButton {
                 background: rgba(28, 48, 82, 112);
                 border: 1px solid rgba(140, 181, 240, 62);
@@ -455,7 +485,7 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter = splitter
         splitter.setChildrenCollapsible(False)
-        splitter.setHandleWidth(1)
+        splitter.setHandleWidth(10)
         splitter.setContentsMargins(0, 0, 0, 0)
         library_panel = self._build_library_panel()
         preview_panel = self._build_preview_panel()
@@ -716,6 +746,8 @@ class MainWindow(QMainWindow):
             f"来源：{'当前活动' if theme.source == 'active' else '已保存主题'}\n"
             f"显示模式：{theme.appearance}\n"
             f"图片：{theme.image_path.name}\n"
+            f"壁纸透明度：{round(theme.image_opacity * 100)}%\n"
+            f"整体主题色：{theme.theme_color or '深蓝默认'}\n"
             f"强调色：{theme.accent or '由壁纸自适应'}"
         )
 

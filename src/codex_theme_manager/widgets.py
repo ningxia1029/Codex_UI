@@ -7,6 +7,18 @@ from PySide6.QtWidgets import QWidget
 from .models import ThemeRecord
 
 
+def _theme_color(theme: ThemeRecord | None) -> QColor:
+    if theme and theme.theme_color:
+        color = QColor(theme.theme_color)
+        if color.isValid():
+            return color
+    return QColor("#08142B")
+
+
+def _image_opacity(theme: ThemeRecord | None) -> float:
+    return theme.image_opacity if theme else 0.68
+
+
 def _draw_cover(
     painter: QPainter,
     bounds: QRect,
@@ -48,17 +60,20 @@ class ThemeWorkspace(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         bounds = self.rect()
-        painter.fillRect(bounds, QColor("#060A16"))
+        painter.fillRect(bounds, _theme_color(self._theme))
 
         if self._theme and not self._wallpaper.isNull():
+            painter.setOpacity(_image_opacity(self._theme))
             _draw_cover(painter, bounds, self._wallpaper, self._theme.focus_x, self._theme.focus_y)
+            painter.setOpacity(1.0)
 
         # 采用静态渐变模拟 Acrylic/Mica 的空间感，不使用持续实时模糊，避免
         # 高 DPI、窗口缩放或大壁纸下产生额外的 CPU/GPU 抖动。
         shade = QLinearGradient(QPointF(bounds.left(), bounds.top()), QPointF(bounds.right(), bounds.bottom()))
-        shade.setColorAt(0.0, QColor(3, 8, 25, 232))
-        shade.setColorAt(0.46, QColor(8, 12, 31, 136))
-        shade.setColorAt(1.0, QColor(2, 6, 18, 226))
+        base = _theme_color(self._theme)
+        shade.setColorAt(0.0, QColor(base.red(), base.green(), base.blue(), 220))
+        shade.setColorAt(0.46, QColor(base.red(), base.green(), base.blue(), 104))
+        shade.setColorAt(1.0, QColor(max(0, base.red() - 4), max(0, base.green() - 5), max(0, base.blue() - 8), 210))
         painter.fillRect(bounds, shade)
 
         aurora_left = QRadialGradient(QPointF(bounds.width() * 0.17, bounds.height() * 0.08), bounds.width() * 0.78)
@@ -268,19 +283,22 @@ class CodexPreviewCanvas(QWidget):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         raw_bounds = self.rect().adjusted(0, 0, -1, -1)
         bounds = QRectF(raw_bounds)
-        painter.fillRect(raw_bounds, QColor("#080C17"))
+        painter.fillRect(raw_bounds, _theme_color(self._theme))
 
         clip = QPainterPath()
         clip.addRoundedRect(bounds, 14, 14)
         painter.save()
         painter.setClipPath(clip)
         if self._theme and not self._wallpaper.isNull():
+            painter.setOpacity(_image_opacity(self._theme))
             _draw_cover(painter, raw_bounds, self._wallpaper, self._theme.focus_x, self._theme.focus_y)
+            painter.setOpacity(1.0)
 
+        base = _theme_color(self._theme)
         shade = QLinearGradient(bounds.topLeft(), bounds.bottomRight())
-        shade.setColorAt(0.0, QColor(3, 7, 16, 212))
-        shade.setColorAt(0.45, QColor(12, 16, 35, 72))
-        shade.setColorAt(1.0, QColor(4, 8, 17, 168))
+        shade.setColorAt(0.0, QColor(base.red(), base.green(), base.blue(), 198))
+        shade.setColorAt(0.45, QColor(base.red(), base.green(), base.blue(), 58))
+        shade.setColorAt(1.0, QColor(max(0, base.red() - 4), max(0, base.green() - 5), max(0, base.blue() - 8), 154))
         painter.fillRect(bounds, shade)
 
         topbar = QRectF(bounds.left(), bounds.top(), bounds.width(), 37)

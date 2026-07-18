@@ -25,6 +25,9 @@
     "--dream-focus-x",
     "--dream-focus-y",
     "--dream-accent",
+    "--dream-theme-color",
+    "--dream-art-opacity",
+    "--dream-art-wash",
     "--dream-accent-ink",
     "--dream-image-luma",
   ];
@@ -61,8 +64,14 @@
     const requestedAccent = typeof config?.palette?.accent === "string"
       ? config.palette.accent.trim()
       : "";
+    const requestedThemeColor = typeof config?.palette?.themeColor === "string"
+      ? config.palette.themeColor.trim()
+      : "";
     const safeAccent = /^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(requestedAccent)
       ? requestedAccent
+      : null;
+    const safeThemeColor = /^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(requestedThemeColor)
+      ? requestedThemeColor
       : null;
     const appearance = ["auto", "light", "dark"].includes(config.appearance)
       ? config.appearance
@@ -81,6 +90,8 @@
       focusX: hasNumber(art.focusX) ? clamp(art.focusX) : null,
       focusY: hasNumber(art.focusY) ? clamp(art.focusY) : null,
       accent: safeAccent,
+      themeColor: safeThemeColor,
+      imageOpacity: hasNumber(art.opacity) ? clamp(art.opacity, .15, 1) : .68,
       initialAspect: Number.isFinite(metadataRatio) && metadataRatio > 0 ? metadataRatio : null,
     };
   };
@@ -298,6 +309,7 @@
       ? profile.aspect >= 2.25 ? "banner" : "ambient"
       : config.taskMode;
     const accent = config.accent || `rgb(${profile.accent.join(" ")})`;
+    const themeColor = config.themeColor || "#0B1830";
     const accentInk = luminance(...profile.accent) > .42 ? "rgb(26 24 28)" : "rgb(250 248 251)";
     root.classList.toggle("dream-theme-light", appearance === "light");
     root.classList.toggle("dream-theme-dark", appearance === "dark");
@@ -317,6 +329,12 @@
     root.style.setProperty("--dream-focus-x", String(focusX));
     root.style.setProperty("--dream-focus-y", String(focusY));
     root.style.setProperty("--dream-accent", accent);
+    root.style.setProperty("--dream-theme-color", themeColor);
+    root.style.setProperty("--dream-art-opacity", config.imageOpacity.toFixed(2));
+    root.style.setProperty(
+      "--dream-art-wash",
+      `color-mix(in srgb, ${themeColor} ${Math.round((1 - config.imageOpacity) * 100)}%, transparent)`,
+    );
     root.style.setProperty("--dream-accent-ink", accentInk);
     root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
   };
